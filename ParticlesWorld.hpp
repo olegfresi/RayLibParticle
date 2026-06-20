@@ -29,6 +29,7 @@
  * SOFTWARE.
  */
 #pragma once
+#include <complex>
 #include <random>
 #include <vector>
 #include "Particle.hpp"
@@ -46,11 +47,15 @@ namespace Particles
             for(size_t i{0}; i < INITIAL_PARTICLES_COUNT; i++)
             {
                 Particle particle{};
-                particle.position = Vector2{RandomRange(0, static_cast<float>(GetScreenWidth())),
-                                            RandomRange(0, static_cast<float>(GetScreenHeight()))};
+                particle.position = Vector2{
+                    RandomRange(0, static_cast<float>(GetScreenWidth())),
+                    RandomRange(0, static_cast<float>(GetScreenHeight()))
+                };
 
-                particle.velocity = Vector2{RandomRange(-MAX_INITIAL_VELOCITY, MAX_INITIAL_VELOCITY),
-                                            RandomRange(-MAX_INITIAL_VELOCITY, MAX_INITIAL_VELOCITY)};
+                particle.velocity = Vector2{
+                    RandomRange(-MAX_INITIAL_VELOCITY, MAX_INITIAL_VELOCITY),
+                    RandomRange(-MAX_INITIAL_VELOCITY, MAX_INITIAL_VELOCITY)
+                };
 
                 particle.radius = RandomRange(4.0f, 7.0f);
 
@@ -67,61 +72,118 @@ namespace Particles
                 DrawCircle(particle.position.x, particle.position.y, particle.radius, WHITE);
         }
 
-        static float RandomRange(float min, float max)
-        {
-            static std::mt19937 generator{ std::random_device{}() };
-            std::uniform_real_distribution range{ min, max };
-
-            return range(generator);
-        }
-
         void Update(float deltaTime)
         {
-
+            static Vector2 lastWindowPosition{GetWindowPosition()};
 
             for(auto& particle : m_particles)
             {
-                particle.position.x += particle.velocity.x * deltaTime;
-                particle.position.y += particle.velocity.y * deltaTime;
+                float dx{GetWindowPosition().x - lastWindowPosition.x};
+                float dy{GetWindowPosition().y - lastWindowPosition.y};
+
+                particle.velocity.x += dx * 2;
+                particle.velocity.y += dy * 2;
 
                 particle.velocity.x *= DRAG;
                 particle.velocity.y *= DRAG;
 
                 particle.velocity.y += GRAVITY;
 
-                bool hitLeft  { particle.position.x - particle.radius < 0};
-                bool hitRight { particle.position.x + particle.radius > static_cast<float>(GetScreenWidth())};
+                particle.position.x += particle.velocity.x * deltaTime;
+                particle.position.y += particle.velocity.y * deltaTime;
 
-                bool hitTop    { particle.position.y - particle.radius < 0};
-                bool hitBottom { particle.position.y + particle.radius > static_cast<float>(GetScreenHeight())};
+                CheckForCollision(particle);
+            }
 
-                if(hitRight)
+            lastWindowPosition = GetWindowPosition();
+
+            for(size_t i{0}; i < m_particles.size(); i++)
+            {
+                for(size_t j{i + 1}; j < m_particles.size(); j++)
                 {
-                    particle.position.x = static_cast<float>(GetScreenWidth()) - particle.radius;
-                    particle.velocity.x *= -BOUNCE;
-                }
+                    auto& a = m_particles[i];
+                    auto& b = m_particles[j];
 
-                if(hitLeft)
-                {
-                    particle.position.x = particle.radius;
-                    particle.velocity.x *= -BOUNCE;
-                }
+                    Vector2 delta{b.position.x - a.position.x, b.position.y - a.position.y};
+                    float distance{std::sqrt(delta.x * delta.x + delta.y * delta.y)};
 
-                if(hitTop)
-                {
-                    particle.position.y = particle.radius;
-                    particle.velocity.y *= -BOUNCE;
-                }
+                    float minDistance{a.radius + b.radius};
 
-                if(hitBottom)
-                {
-                    particle.position.y = static_cast<float>(GetScreenHeight()) - particle.radius;
-                    particle.velocity.y *= -BOUNCE;
+                    if(distance >= minDistance)
+                        continue;
+
+                    Vector2 normal = {delta.x / distance, delta.y / distance};
+                    float overlap{minDistance - distance};
+
+                    a.position.x -= normal.x * overlap * 0.5;
+                    a.position.y -= normal.y * overlap * 0.5;
+
+                    b.position.x += normal.x * overlap * 0.5;
+                    b.position.y += normal.y * overlap * 0.5;
+
+                    Vector2 relativeVelocity{b.velocity.x - a.velocity.x, b.velocity.y - a.velocity.y};
+
+                    float dotRelativeVelocityNormal{relativeVelocity.x * normal.x + relativeVelocity.y * normal.y};
+
+                    if(dotRelativeVelocityNormal > 0)
+                        continue;
+
+                    float restitution{0.9f};
+                    float impulseScalar{-(1.0f + restitution) * dotRelativeVelocityNormal / 2.0f};
+
+                    Vector2 impulse{normal.x * impulseScalar, normal.y * impulseScalar};
+
+                    a.velocity.x -= impulse.x;
+                    a.velocity.y -= impulse.y;
+
+                    b.velocity.x += impulse.x;
+                    b.velocity.y += impulse.y;
                 }
             }
         }
 
     private:
         std::vector<Particle> m_particles{};
+
+        static void CheckForCollision(Particle& particle)
+        {
+            bool hitLeft{particle.position.x - particle.radius < 0};
+            bool hitRight{particle.position.x + particle.radius > static_cast<float>(GetScreenWidth())};
+
+            bool hitTop{particle.position.y - particle.radius < 0};
+            bool hitBottom{particle.position.y + particle.radius > static_cast<float>(GetScreenHeight())};
+
+            if(hitRight)
+            {
+                particle.position.x = static_cast<float>(GetScreenWidth()) - particle.radius;
+                particle.velocity.x *= -BOUNCE;
+            }
+
+            if(hitLeft)
+            {
+                particle.position.x = particle.radius;
+                particle.velocity.x *= -BOUNCE;
+            }
+
+            if(hitTop)
+            {
+                particle.position.y = particle.radius;
+                particle.velocity.y *= -BOUNCE;
+            }
+
+            if(hitBottom)
+            {
+                particle.position.y = static_cast<float>(GetScreenHeight()) - particle.radius;
+                particle.velocity.y *= -BOUNCE;
+            }
+        }
+
+        static float RandomRange(float min, float max)
+        {
+            static std::mt19937 generator{std::random_device{}()};
+            std::uniform_real_distribution range{min, max};
+
+            return range(generator);
+        }
     };
 }

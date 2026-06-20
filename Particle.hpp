@@ -33,14 +33,14 @@
 
 namespace Particles
 {
-    constexpr float MAX_INITIAL_VELOCITY {300.0};
+    constexpr float MAX_INITIAL_VELOCITY { 300.0f };
 
-    constexpr float MIN_RADIUS {4.0f};
-    constexpr float MAX_RADIUS {7.0f};
+    constexpr float MIN_RADIUS { 4.0f };
+    constexpr float MAX_RADIUS { 7.0f };
 
-    constexpr float DRAG {0.99f};
-    constexpr float GRAVITY {9.81f};
-    constexpr float BOUNCE {0.8f};
+    constexpr float DRAG    { 0.99f };
+    constexpr float GRAVITY { 9.81f };
+    constexpr float BOUNCE  { 0.8f };
 
     struct Particle
     {
